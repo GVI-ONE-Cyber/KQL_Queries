@@ -1,0 +1,24 @@
+// Check for unauthorized tunnel domain connections using ShadowWhisperer's Tunnel List
+// This KQL query works in 365 Defender and Log Analytics
+//
+// Establish the domain list from GitHub, create variable, and skip empty lines
+let domain_list = externaldata(Domains:string)
+                   ["https://raw.githubusercontent.com/ShadowWhisperer/BlockLists/master/Lists/Tunnels"]
+                   with(skip=1);
+// Use DeviceNetworkEvents table to search for events
+DeviceNetworkEvents
+// Exclude any tunnel remote URLs that are authorized for use and reduce noise, Example: msc.mcafee.com excluded because the OOTB bloatware Mcafee Safe Connect
+| where RemoteUrl !in ("msc.mcafee.com")
+// Check RemoteUrl against the GitHub list
+| where RemoteUrl in (domain_list)
+// Join DeviceInfo table to get device specific info added in
+| join (DeviceInfo | project LoggedOnUsers, MachineGroup, DeviceId) on DeviceId
+| join (DeviceLogonEvents | project DeviceId, AccountName, Timestamp) on DeviceId
+// Filter out some accounts to reduce noise
+| where not (AccountName matches regex "^(atp|dwm|umfd)")
+// Remove some duplicate rows to clean things up
+| distinct Timestamp, DeviceName, MachineGroup, AccountName, InitiatingProcessAccountName, RemoteUrl
+// Output the table columns we care about
+| project Timestamp, MachineGroup, DeviceName, AccountName, InitiatingProcessAccountName, RemoteUrl
+// Sort output by newest data first
+| sort by Timestamp desc
