@@ -1,6 +1,9 @@
 // Check for unauthorized tunnel domain connections using ShadowWhisperer's Tunnel List
 // This KQL query works in 365 Defender and Log Analytics
 //
+// Author: GVI ONE Cyber Team
+// License: GPL3
+//
 // Establish the domain list from GitHub, create variable, and skip empty lines
 let domain_list = externaldata(Domains:string)
                    ["https://raw.githubusercontent.com/ShadowWhisperer/BlockLists/master/Lists/Tunnels"]
