@@ -1,0 +1,33 @@
+// Check for illegal/DMCA/shady movie, tv show, sports, anime, related forums, and other streaming or direct download domain connections using a giant list
+// This KQL query should work in 365 Defender and Log Analytics
+// Be advised query needs some refinement, lots of blank fields, but it should catch almost all connections even if the domain is nested in a URL
+//
+// Author: GVI ONE Cyber Team
+// License: GPL3
+//
+// Establish the domain list from GitHub, create variable, and load domains as string
+let domain_list = externaldata(Domains:string)
+                   ["https://raw.githubusercontent.com/GVI-ONE-Cyber/Dynamic_Lists/main/shady-piracy-streaming-domains.csv"]
+                   with(format="csv", ignoreFirstRecord=true);
+// Use AlertEvidence table to search for events
+let AlertEvents = AlertEvidence
+| where RemoteUrl !contains "microsoft.com"
+| where RemoteUrl has_any (domain_list)
+| project Timestamp, RemoteUrl, AccountName;
+// Use DeviceNetworkEvents table to search for events
+let DeviceEvents = DeviceNetworkEvents
+| where RemoteUrl !contains "microsoft.com"
+| where RemoteUrl has_any (domain_list)
+| project Timestamp, InitiatingProcessAccountName, RemoteUrl, DeviceId;
+// Join the DeviceInfo table to get the MachineGroup column
+let DeviceInfoTable = DeviceInfo
+| project DeviceId, DeviceName, MachineGroup;
+// Join the three tables using the join operator
+(AlertEvents
+| union DeviceEvents)
+| join kind=leftouter DeviceInfoTable on DeviceId
+// Remove some duplicate rows to clean things up a bit
+| distinct Timestamp, DeviceName, MachineGroup, AccountName, RemoteUrl, InitiatingProcessAccountName
+// Output the table columns we care about
+| project Timestamp, RemoteUrl, AccountName, InitiatingProcessAccountName, DeviceName, MachineGroup
+| sort by Timestamp desc
