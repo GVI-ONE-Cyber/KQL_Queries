@@ -1,0 +1,19 @@
+// Check for illegal/DMCA/shady movie, tv show, sports, anime, related forums, and other streaming or direct download domain dns queries using a giant list
+//
+// This KQL query should work in Log Analytics and can be used to create a NRT Analytics rule
+//
+// Author: GVI ONE Cyber Team
+// License: GPL3
+//
+// Establish the domain list from GitHub, create variable, and load domains as string
+let domain_list = externaldata(Domains:string)
+                   ["https://raw.githubusercontent.com/GVI-ONE-Cyber/Dynamic_Lists/main/shady-piracy-streaming-domains.csv"]
+                   with(format="csv");
+// Use DnsEvents table to search for events
+DnsEvents
+// Exclude anything with microsoft.com to reduce noise
+| where Name !contains "microsoft.com"
+// Check RemoteUrl against the GitHub list
+| where Name in (domain_list)
+// Sort by Timestamp
+| sort by TimeGenerated desc
